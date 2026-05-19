@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Tel Aviv Compass</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Cinzel+Decorative:wght@400;700&display=swap" rel="stylesheet">
+  <style>
+    * { box-sizing: border-box; }
+    body, html {
+      margin: 0; padding: 0; width: 100%; height: 100%;
+      background: radial-gradient(ellipse at 40% 30%, #0a1628 0%, #020810 100%);
+      font-family: 'Cinzel', serif; color: #e8d5a3;
+      overflow: hidden; display: flex; flex-direction: column;
+      align-items: center; justify-content: center; position: relative;
+    }
+    @keyframes twinkle { 0%,100%{opacity:0.2} 50%{opacity:0.9} }
+    @keyframes rotate-slow { from{transform:rotate(0deg)} to{transform:rotate(360deg)} }
+    @keyframes fade-in { from{opacity:0;transform:translateY(16px)} to{opacity:1;transform:translateY(0)} }
+    @keyframes glow-pulse { 0%,100%{filter:drop-shadow(0 0 6px #c8a03c)} 50%{filter:drop-shadow(0 0 18px #ffdf80)} }
+    
+    .card { animation: fade-in 0.7s ease forwards; text-align: center; z-index: 1; }
+    .compass-arrow { animation: glow-pulse 2s ease-in-out infinite; }
+    .rotating-loader { animation: rotate-slow 2s linear infinite; transform-origin: 0px 0px; }
+    
+    .info-container { display: flex; gap: 12px; margin-top: 28px; z-index: 1; opacity: 0; }
+    .info-box {
+      text-align: center; background: rgba(200,160,60,0.07);
+      border: 1px solid rgba(200,160,60,0.2); border-radius: 10px;
+      padding: 12px 20px; backdrop-filter: blur(6px); min-width: 90px;
+    }
+    .info-label { font-size: 10px; letter-spacing: 0.2em; color: #6b5a2a; text-transform: uppercase; margin-bottom: 4px; }
+    .info-value { font-size: 20px; font-weight: 600; color: #e8c96a; letter-spacing: 0.05em; }
+    
+    .note { margin-top: 16px; z-index: 1; font-size: 11px; color: #4a3a1a; letter-spacing: 0.1em; text-align: center; }
+    .btn {
+      background: transparent; border: 1px solid #c8a03c; border-radius: 8px;
+      padding: 8px 20px; color: #e8c96a; font-family: 'Cinzel', serif;
+      font-size: 12px; cursor: pointer; letter-spacing: 0.1em; margin-top: 12px;
+    }
+    .btn:active { background: rgba(200,160,60,0.1); }
+    .hidden { display: none !important; }
+  </style>
+</head>
+<body>
+
+  <!-- Star field -->
+  <svg style="position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none;" id="starfield"></svg>
+
+  <!-- Horizon glow -->
+  <div style="position: absolute; bottom: 0; left: 0; right: 0; height: 35%; background: radial-gradient(ellipse at 50% 100%, rgba(180,120,30,0.15) 0%, transparent 70%); pointer-events: none;"></div>
+
+  <!-- Title Section -->
+  <div class="card" style="margin-bottom: 32px;">
+    <div style="font-size: 11px; letter-spacing: 0.35em; color: #9a7d3a; margin-bottom: 6px; text-transform: uppercase;">Navigate Towards</div>
+    <h1 style="font-size: 38px; font-family: 'Cinzel Decorative', serif; font-weight: 700; color: #e8c96a; margin: 0; letter-spacing: 0.05em; text-shadow: 0 0 40px rgba(232,201,106,0.4);">Tel Aviv</h1>
+    <div style="font-size: 11px; letter-spacing: 0.2em; color: #6b5a2a; margin-top: 4px;">32°N · 34°E</div>
+  </div>
+
+  <!-- Compass Graphic -->
+  <div class="card">
+    <svg width="280" height="280" viewBox="-140 -140 280 280">
+      <circle r="132" fill="none" stroke="#2a1f0a" stroke-width="8" />
+      <circle r="128" fill="none" stroke="#4a3510" stroke-width="1" />
+      <circle r="124" fill="none" stroke="#c8a03c" stroke-width="0.5" opacity="0.4" />
+
+      <!-- Ticks -->
+      <g id="ticks"></g>
+
+      <!-- Cardinal Direction Labels -->
+      <text x="0" y="-92" text-anchor="middle" font-size="14" fill="#e8c96a" font-weight="700">N</text>
+      <text x="96" y="4" text-anchor="middle" font-size="11" fill="#9a7d3a">E</text>
+      <text x="0" y="100" text-anchor="middle" font-size="11" fill="#9a7d3a">S</text>
+      <text x="-96" y="4" text-anchor="middle" font-size="11" fill="#9a7d3a">W</text>
+
+      <!-- Inner dial graphics -->
+      <circle r="82" fill="#060d18" />
+      <circle r="82" fill="url(#innerGrad)" />
+      <defs>
+        <radialGradient id="innerGrad" cx="40%" cy="35%">
+          <stop offset="0%" stopColor="#1a2d4a" />
+          <stop offset="100%" stopColor="#020810" />
+        </radialGradient>
+        <filter id="glow">
+          <feGaussianBlur stdDeviation="3" result="blur" />
+          <feMerge><feMergeNode in="blur" /><feMergeNode in="SourceGraphic" /></feMerge>
+        </filter>
+      </defs>
+
+      <!-- Pulse rings -->
+      <circle id="pulse0" r="40" fill="none" stroke="#c8a03c" stroke-width="0.5" opacity="0.08" style="transition: opacity 0.4s;" />
+      <circle id="pulse1" r="54" fill="none" stroke="#c8a03c" stroke-width="0.5" opacity="0.08" style="transition: opacity 0.4s;" />
+      <circle id="pulse2" r="68" fill="none" stroke="#c8a03c" stroke-width="0.5" opacity="0.08" style="transition: opacity 0.4s;" />
+
+      <!-- Fixed: No CSS transitions or transforms applied to this group wrapper -->
+      <g id="arrowGroup" class="compass-arrow hidden">
+        <polygon points="0,-68 6,-20 0,-8 -6,-20" fill="#e8c96a" filter="url(#glow)" />
+        <polygon points="0,68 5,20 0,8 -5,20" fill="#3a2a0a" />
+        <circle r="7" fill="#0d1a30" stroke="#c8a03c" stroke-width="1.5" />
+        <circle r="3" fill="#e8c96a" />
+      </g>
+
+      <!-- Loading spinner -->
+      <g id="loader" class="rotating-loader">
+        <circle r="30" fill="none" stroke="#c8a03c" stroke-width="2" stroke-dasharray="20 60" />
+      </g>
+
+      <!-- Error text -->
+      <text id="errorText" text-anchor="middle" y="6" font-size="10" fill="#e8c96a" class="hidden">Location error</text>
+    </svg>
+  </div>
+
+  <!-- Telemetry Data Grid -->
+  <div id="infoGrid" class="info-container">
+    <div class="info-box">
+      <div class="info-label">Bearing</div>
+      <div id="valBearing" class="info-value">—</div>
+    </div>
+    <div class="info-box">
+      <div class="info-label">Distance</div>
+      <div id="valDistance" class="info-value">—</div>
+    </div>
+    <div class="info-box">
+      <div class="info-label">Heading</div>
+      <div id="valHeading" class="info-value">—</div>
+    </div>
+  </div>
+
+  <!-- Status / Compass State Note -->
+  <div id="statusNote" class="note">✦ Determining coordinates...</div>
+  
+  <!-- Fallback/Retry UI elements -->
+  <div id="errorControl" class="card hidden" style="margin-top: 20px;">
+    <div style="font-size: 12px; color: #9a5a2a; letter-spacing: 0.1em; margin-bottom: 4px;">Location access required</div>
+    <button class="btn" onclick="getLocation()">Retry</button>
+  </div>
+
+  <script>
+    const TEL_AVIV = { lat: 32.0853, lng: 34.7818 };
+    let userLocation = null;
+    let heading = null;
+    let bearing = null;
+    let distance = null;
+    let pulseIndex = 0;
+
+    function toRad(deg) { return (deg * Math.PI) / 180; }
+    function toDeg(rad) { return (rad * 180) / Math.PI; }
+
+    function calculateBearing(from, to) {
+      const φ1 = toRad(from.lat), φ2 = toRad(to.lat);
+      const Δλ = toRad(to.lng - from.lng);
+      const y = Math.sin(Δλ) * Math.cos(φ2);
+      const x = Math.cos(φ1) * Math.sin(φ2) - Math.sin(φ1) * Math.cos(φ2) * Math.cos(Δλ);
+      return (toDeg(Math.atan2(y, x)) + 360) % 360;
+    }
+
+    function calculateDistance(from, to) {
+      const R = 6371; 
+      const dφ = toRad(to.lat - from.lat);
+      const dλ = toRad(to.lng - from.lng);
+      const a = Math.sin(dφ / 2) ** 2 + Math.cos(toRad(from.lat)) * Math.cos(toRad(to.lat)) * Math.sin(dλ / 2) ** 2;
+      return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    }
+
+    // Stars background generation
+    const starfield = document.getElementById('starfield');
+    let starsHtml = '';
+    for(let i=0; i<40; i++) {
+      const x = Math.random() * 100;
+      const y = Math.random() * 100;
+      const size = Math.random() * 1.5 + 0.3;
+      const opacity = Math.random() * 0.6 + 0.2;
+      const delay = Math.random() * 3;
+      starsHtml += `<circle cx="${x}%" cy="${y}%" r="${size}" fill="white" opacity="${opacity}" style="animation: twinkle 3s ${delay}s ease-in-out infinite" />`;
+    }
+    starfield.innerHTML = starsHtml;
+
+    // Ticks generation
+    const ticksContainer = document.getElementById('ticks');
+    let ticksHtml = '';
+    for (let i = 0; i < 72; i++) {
+      const angleDeg = i * 5;
+      const angRad = (angleDeg * Math.PI) / 180;
+      const isMajor = i % 6 === 0;
+      const r1 = 118, r2 = isMajor ? 108 : 114;
+      ticksHtml += `
+        <line 
+          x1="${Math.sin(angRad) * r2}" y1="${-Math.cos(angRad) * r2}"
+          x2="${Math.sin(angRad) * r1}" y2="${-Math.cos(angRad) * r1}"
+          stroke="${isMajor ? '#c8a03c' : '#4a3510'}"
+          stroke-width="${isMajor ? 1.5 : 0.8}"
+        />`;
+    }
+    ticksContainer.innerHTML = ticksHtml;
+
+    // Pulse rings
+    setInterval(() => {
+      pulseIndex = (pulseIndex + 1) % 3;
+      for(let i=0; i<3; i++) {
+        document.getElementById(`pulse${i}`).style.opacity = (pulseIndex === i) ? '0.35' : '0.08';
+      }
+    }, 1200);
+
+    function getLocation() {
+      toggleVisibility('loader', true);
+      toggleVisibility('arrowGroup', false);
+      toggleVisibility('errorText', false);
+      toggleVisibility('errorControl', false);
+      document.getElementById('statusNote').innerText = "✦ Determining coordinates...";
+
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          userLocation = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+          bearing = calculateBearing(userLocation, TEL_AVIV);
+          distance = calculateDistance(userLocation, TEL_AVIV);
+
+          document.getElementById('valBearing').innerText = `${bearing.toFixed(0)}°`;
+          document.getElementById('valDistance').innerText = `${Math.round(distance).toLocaleString()} km`;
+          
+          toggleVisibility('loader', false);
+          toggleVisibility('arrowGroup', true);
+          document.getElementById('infoGrid').style.opacity = "1";
+          
+          updateNavigationFrame();
+          setupCompassOrientation();
+        },
+        (err) => {
+          toggleVisibility('loader', false);
+          toggleVisibility('errorText', true);
+          toggleVisibility('errorControl', true);
+          document.getElementById('statusNote').innerText = "✦ Location services offline.";
+        },
+        { enableHighAccuracy: true, timeout: 10000 }
+      );
+    }
+
+    // Fixed: Bypasses the CSS engine entirely by updating raw SVG DOM attributes directly
+    function updateNavigationFrame() {
+      if (bearing === null) return;
+      
+      let finalRotation = bearing;
+      if (heading !== null) {
+        finalRotation = (bearing - heading + 360) % 360;
+        document.getElementById('valHeading').innerText = `${heading.toFixed(0)}°`;
+        document.getElementById('statusNote').innerText = "✦ Live compass · Arrow points to Tel Aviv";
+      } else {
+        document.getElementById('valHeading').innerText = "—";
+        document.getElementById('statusNote').innerText = "✦ Static bearing · Device hardware restricted";
+      }
+      
+      // Fixed: Using setAttribute to apply the rotation natively into the SVG space
+      document.getElementById('arrowGroup').setAttribute('transform', `rotate(${finalRotation})`);
+    }
+
+    function setupCompassOrientation() {
+      const onOrientationChange = (e) => {
+        let currentHeading = null;
+
+        if (e.webkitCompassHeading !== undefined) {
+          currentHeading = e.webkitCompassHeading;
+        } else if (e.alpha !== null) {
+          currentHeading = (360 - e.alpha) % 360;
+          if(e.absolute === false) {
+             document.getElementById('statusNote').innerText = "✦ Relative alignment · Rotate device to synchronize";
+          }
+        }
+
+        if (currentHeading !== null) {
+          heading = currentHeading;
+          updateNavigationFrame();
+        }
+      };
+
+      if (window.DeviceOrientationEvent) {
+        if ('ondeviceorientationabsolute' in window) {
+          window.addEventListener('deviceorientationabsolute', onOrientationChange, true);
+        } else {
+          window.addEventListener('deviceorientation', onOrientationChange, true);
+        }
+      } else {
+        document.getElementById('statusNote').innerText = "✦ Hardware orientation engine not detected.";
+      }
+    }
+
+    function toggleVisibility(id, shouldShow) {
+      const el = document.getElementById(id);
+      if(shouldShow) el.classList.remove('hidden');
+      else el.classList.add('hidden');
+    }
+
+    window.onload = () => {
+      getLocation();
+    };
+  </script>
+</body>
+</html>
